@@ -3,9 +3,22 @@
 A goal tracking app.
 
 - [Goals](#goals)
+  - [About](#about)
+    - [TO-DOs](#to-dos)
   - [Usage](#usage)
     - [General](#general)
     - [WSL](#wsl)
+
+## About
+
+A goal tracking app that requires a bit more "buy-in." The idea is that users commit some amount of money to their goal, and if they fail, their friends profit! How fun.
+
+Started at nwHacks 2024.
+
+### TO-DOs
+
+- [ ] Replace MongoDB with Firebase's NoSQL solution
+- [ ] Re-configure Firebase
 
 ## Usage
 

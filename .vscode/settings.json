@@ -9,6 +9,10 @@
     {
       "directory": "goals",
       "changeProcessCWD": true
+    },
+    {
+      "directory": "server",
+      "changeProcessCWD": true
     }
   ]
 }
