@@ -1,6 +1,8 @@
 ### Custom
 
 fir*.json
+photos/
+*.bin
 
 ### Bun.gitignore
 

@@ -1,8 +1,8 @@
-import type { FastifyInstance, FastifyRequest } from "fastify";
-import multer from "fastify-multer";
+import fastifyStatic from "@fastify/static";
+import type { FastifyInstance } from "fastify";
+import fp from "fastify-plugin";
+import fs from "fs/promises";
 import { v4 as uuidv4 } from "uuid";
-
-const upload = multer({ storage: multer.memoryStorage() });
 
 interface Goal {
   goalid: string;
@@ -27,15 +27,11 @@ interface Day {
   photo: string;
 }
 
-interface MulterRequest extends FastifyRequest {
-  file: Express.Multer.File;
-}
-
 const goalsDB: Record<string, Goal> = {};
 const daysDB: Record<string, Day[]> = {};
 
-export function registerGoalsRoutes(fastify: FastifyInstance) {
-  fastify.post("/goals", async (request, reply) => {
+const goals = async (server: FastifyInstance, opts: any) => {
+  server.post("/goals", async (request, reply) => {
     try {
       const { userA, userAGoal, buyIn, reminder, startDate, endDate } =
         request.body as any; // Define the correct type
@@ -57,11 +53,12 @@ export function registerGoalsRoutes(fastify: FastifyInstance) {
 
       reply.status(201).send(newGoal);
     } catch (error) {
+      console.error(error);
       reply.status(500).send({ error: "Internal Server Error" });
     }
   });
 
-  fastify.patch<{ Params: GoalParams }>(
+  server.patch<{ Params: GoalParams }>(
     "/goals/:goalid",
     async (request, reply) => {
       try {
@@ -85,12 +82,13 @@ export function registerGoalsRoutes(fastify: FastifyInstance) {
 
         reply.status(200).send(goal);
       } catch (error) {
+        console.error(error);
         reply.status(500).send({ error: "Internal Server Error" });
       }
     },
   );
 
-  fastify.get<{ Params: GoalParams }>(
+  server.get<{ Params: GoalParams }>(
     "/goals/:goalid",
     async (request, reply) => {
       try {
@@ -103,44 +101,66 @@ export function registerGoalsRoutes(fastify: FastifyInstance) {
 
         reply.status(200).send(goal);
       } catch (error) {
+        console.error(error);
         reply.status(500).send({ error: "Internal Server Error" });
       }
     },
   );
 
-  fastify.post<{ Params: GoalParams }>(
+  server.post<{ Params: GoalParams }>(
     "/goals/:goalid/days",
-    { preHandler: upload.single("photo") },
     async (request, reply) => {
+      const data = await request.file();
+      if (!data) {
+        return reply.status(400).send({ error: "No file provided" });
+      }
+      if (data.mimetype !== "image/jpeg") {
+        return reply.status(400).send({ error: "Invalid file type" });
+      }
+      if (!data.fields.user) {
+        return reply.status(400).send({ error: "No user provided" });
+      }
+
+      const { goalid } = request.params;
+      const datetime = new Date();
+
+      const filename = `${uuidv4()}.jpg`;
+
+      const buffer = await data.toBuffer();
       try {
-        const multerReq = request as MulterRequest;
-
-        const { goalid } = request.params;
-        const { user } = request.body as any; // Define the correct type
-        const datetime = new Date();
-        const photo: string = multerReq.file.filename; // Handle file data
-
-        const newDay: Day = {
-          goalid,
-          user,
-          datetime,
-          photo,
-        };
-
-        if (!daysDB[goalid]) {
-          daysDB[goalid] = [];
-        }
-
-        daysDB[goalid].push(newDay);
-
-        reply.status(201).send(newDay);
+        await fs.writeFile(
+          `${server.config.PHOTOS_DIR}/${filename}`,
+          buffer,
+          "binary",
+        );
       } catch (error) {
+        console.error(error);
         reply.status(500).send({ error: "Internal Server Error" });
       }
+
+      const newDay: Day = {
+        goalid,
+        user: (data.fields.user as any).value,
+        datetime,
+        photo: filename,
+      };
+
+      if (!daysDB[goalid]) {
+        daysDB[goalid] = [];
+      }
+
+      daysDB[goalid].push(newDay);
+
+      reply.status(201).send(newDay);
     },
   );
 
-  fastify.get<{ Params: GoalParams }>(
+  server.register(fastifyStatic, {
+    root: server.config.PHOTOS_DIR,
+    prefix: "/photos/",
+  });
+
+  server.get<{ Params: GoalParams }>(
     "/goals/:goalid/days",
     async (request, reply) => {
       try {
@@ -149,8 +169,11 @@ export function registerGoalsRoutes(fastify: FastifyInstance) {
 
         reply.status(200).send(days);
       } catch (error) {
+        console.error(error);
         reply.status(500).send({ error: "Internal Server Error" });
       }
     },
   );
-}
+};
+
+export default fp(goals);

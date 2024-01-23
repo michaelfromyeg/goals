@@ -1,3 +1,4 @@
+import fastifyMultipart from "@fastify/multipart";
 import type {
   FastifyInstance,
   FastifyReply,
@@ -6,13 +7,19 @@ import type {
 } from "fastify";
 import Fastify from "fastify";
 import admin from "firebase-admin";
+import fs from "fs";
 import type { AddressInfo } from "node:net";
-import { registerGoalsRoutes } from "./goals";
+import path from "path";
+import goals from "./goals.js";
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || "localhost";
 
 const FIREBASE_SERVICE_ACCOUNT = process.env.FIREBASE_SERVICE_ACCOUNT || "";
+if (!FIREBASE_SERVICE_ACCOUNT) {
+  throw new Error("FIREBASE_SERVICE_ACCOUNT not set");
+}
+
 const serviceAccount = JSON.parse(
   Buffer.from(FIREBASE_SERVICE_ACCOUNT, "base64").toString("utf-8"),
 );
@@ -21,7 +28,29 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-const fastify: FastifyInstance = Fastify({ logger: true });
+export const fastify: FastifyInstance = Fastify({ logger: true });
+
+fastify.register(fastifyMultipart, {
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+  },
+});
+
+if (!process.env.PHOTOS_PATH) {
+  throw new Error("PHOTOS_PATH not set");
+}
+
+fastify.decorate("config", {
+  PORT: process.env.PORT || "3000",
+  HOST: process.env.HOST || "localhost",
+  MONGODB_URI: process.env.MONGODB_URI || "mongodb://localhost:27017",
+  FIREBASE_SERVICE_ACCOUNT: FIREBASE_SERVICE_ACCOUNT,
+  PHOTOS_DIR: path.join(process.cwd(), process.env.PHOTOS_PATH),
+});
+
+if (!fs.existsSync(fastify.config.PHOTOS_DIR)) {
+  fs.mkdirSync(fastify.config.PHOTOS_DIR, { recursive: true });
+}
 
 const opts: RouteShorthandOptions = {
   schema: {
@@ -36,7 +65,7 @@ const opts: RouteShorthandOptions = {
   },
 };
 
-fastify.get("/", opts, async (request, reply) => {
+fastify.get("/", opts, async (request: any, reply: any) => {
   return { status: "up" };
 });
 
@@ -58,16 +87,17 @@ fastify.post(
       const response = await admin.messaging().send(message);
       reply.status(200).send(`Successfully sent message: ${response}`);
     } catch (error) {
+      console.error(error);
       reply.status(500).send(`Error sending message: ${error}`);
     }
   },
 );
 
-registerGoalsRoutes(fastify);
-
 const toString = (address: AddressInfo): string => {
   return `${address.address}:${address.port}`;
 };
+
+fastify.register(goals);
 
 const start = async (): Promise<void> => {
   try {
