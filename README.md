@@ -19,6 +19,7 @@ Started at nwHacks 2024.
 
 - [ ] Replace MongoDB with Firebase's NoSQL solution
 - [ ] Re-configure Firebase
+- [ ] Re-introduce camera stuff with [`react-native-vision-camera`](https://github.com/mrousavy/react-native-vision-camera)
 
 ## Usage
 

@@ -1,4 +1,15 @@
 {
+  "orientation": "portrait",
+  "android": {
+    "permissions": ["android.permission.CAMERA", "android.permission.RECORD_AUDIO"]
+  },
   "name": "goals",
-  "displayName": "goals"
+  "splash": {
+    "image": "./assets/splash.png",
+    "backgroundColor": "#056df5"
+  },
+  "scheme": "goals",
+  "icon": "./assets/icon.png",
+  "primaryColor": "#056df5",
+  "slug": "goals"
 }
